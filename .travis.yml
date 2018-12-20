@@ -8,9 +8,13 @@ cache:
 
 if: 'branch = master OR type != push OR fork = true OR tag =~ ^v'
 
+env:
+  global:
+    - RUST_BACKTRACE=full
+
 matrix:
   include:
-    # - os: windows
+    - os: windows
     - os: osx
       install:
         - cargo fmt --version || rustup component add rustfmt
