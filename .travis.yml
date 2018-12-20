@@ -1,0 +1,34 @@
+language: rust
+rust: 1.31.0
+sudo: true
+cache:
+  timeout: 1024
+  directories:
+    - $HOME/.cargo
+
+if: 'branch = master OR type != push OR fork = true OR tag =~ ^v'
+
+matrix:
+  include:
+    - os: osx
+      install:
+        - cargo fmt --version || rustup component add rustfmt
+        - cargo clippy --version || rustup component add clippy
+      env: SUITE=ci
+    - rust: 1.31.0
+      addons:
+        apt:
+          packages:
+            - git
+            - autoconf
+            - flex
+            - bison
+            - texinfo
+            - libtool
+      env: SUITE=ci-quick
+
+script:
+- make "$SUITE"
+
+before_cache:
+- rm -rf $HOME/.cargo/registry

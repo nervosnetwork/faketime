@@ -1,0 +1,15 @@
+[package]
+name = "faketime"
+version = "0.1.0"
+license = "MIT"
+authors = ["Nervos Core Dev <dev@nervos.org>"]
+edition = "2018"
+description = "Fake time to ease testing and debugging"
+keywords = ["time"]
+categories = ["development-tools", "date-and-time"]
+
+[target.'cfg(not(disable_faketime))'.dependencies]
+tempfile = "3.0"
+
+[badges]
+travis-ci = { repository = "nervosnetwork/faketime", branch = "master" }
