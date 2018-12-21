@@ -217,28 +217,11 @@ mod tests {
 
     #[test]
     fn test_mock_file_io() {
-        {
-            let path = NamedTempFile::new()
-                .expect("create faketime file")
-                .into_temp_path();
-            println!("write {:?}", path);
-            write_millis(&path, 0).expect("write millis");
-            write_millis(&path, 2).expect("write millis");
-            assert_eq!(Some(2), read_millis(&path).ok());
-            fs::write(&path, "x").expect("write millis");
-        }
-
         let faketime_file = NamedTempFile::new()
             .expect("create faketime file")
             .into_temp_path();
 
-        assert_eq!(None, read_millis(&faketime_file).ok());
         println!("write {:?}", faketime_file);
         fs::write(&faketime_file, "x").expect("write millis");
-        assert_eq!(None, read_millis(&faketime_file).ok());
-        fs::write(&faketime_file, "12345\n").expect("write millis");
-        assert_eq!(12345, read_millis(&faketime_file).expect("read millis"));
-        write_millis(&faketime_file, 54321).expect("write millis");
-        assert_eq!(54321, read_millis(&faketime_file).expect("read millis"));
     }
 }
