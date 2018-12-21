@@ -224,6 +224,7 @@ mod tests {
             println!("write {:?}", path);
             write_millis(&path, 0).expect("write millis");
             write_millis(&path, 2).expect("write millis");
+            assert_eq!(Some(2), read_millis(&path).ok());
             fs::write(&path, "x").expect("write millis");
         }
 
