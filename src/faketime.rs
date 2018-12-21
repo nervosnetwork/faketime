@@ -97,7 +97,7 @@ use crate::system::unix_time as system_unix_time;
 use std::cell::{Cell, RefCell};
 use std::env;
 use std::fs;
-use std::io::Write;
+use std::io::{Error, ErrorKind, Write};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -162,14 +162,18 @@ pub fn disable() {
     FAKETIME_ENABLED.with(|cell| cell.set(Some(false)));
 }
 
-fn read_millis<T: AsRef<Path>>(path: T) -> Option<u64> {
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|text| text.trim().parse().ok())
+fn read_millis<T: AsRef<Path>>(path: T) -> Result<u64> {
+    fs::read_to_string(path).and_then(|text| {
+        text.trim()
+            .parse()
+            .map_err(|err| Error::new(ErrorKind::Other, err))
+    })
 }
 
 fn read_or_system<T: AsRef<Path>>(path: T) -> Duration {
-    read_millis(path).map_or_else(system_unix_time, Duration::from_millis)
+    read_millis(path)
+        .ok()
+        .map_or_else(system_unix_time, Duration::from_millis)
 }
 
 /// Writes time as milliseconds since *UNIX EPOCH* into the specified timestamp file.
@@ -217,12 +221,12 @@ mod tests {
             .expect("create faketime file")
             .into_temp_path();
 
-        assert_eq!(None, read_millis(&faketime_file));
-        let _ = fs::write(&faketime_file, "x");
-        assert_eq!(None, read_millis(&faketime_file));
-        let _ = fs::write(&faketime_file, "12345\n");
-        assert_eq!(Some(12345), read_millis(&faketime_file));
-        let _ = write_millis(&faketime_file, 54321);
-        assert_eq!(Some(54321), read_millis(&faketime_file));
+        assert_eq!(None, read_millis(&faketime_file).ok());
+        fs::write(&faketime_file, "x").expect("write millis");
+        assert_eq!(None, read_millis(&faketime_file).ok());
+        fs::write(&faketime_file, "12345\n").expect("write millis");
+        assert_eq!(12345, read_millis(&faketime_file).expect("read millis"));
+        write_millis(&faketime_file, 54321).expect("write millis");
+        assert_eq!(54321, read_millis(&faketime_file).expect("read millis"));
     }
 }
