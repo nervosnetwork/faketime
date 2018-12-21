@@ -76,7 +76,7 @@
 //! let start = faketime::system::unix_time();
 //! thread::spawn(move || assert!((faketime::unix_time() - start).as_secs() < 60))
 //!     .join()
-//!     .expect("spawn thread");
+//!     .expect("join thread");
 //! ```
 //!
 //! ## Atomic Write
