@@ -76,7 +76,7 @@
 //! let start = faketime::system::unix_time();
 //! thread::spawn(move || assert!((faketime::unix_time() - start).as_secs() < 60))
 //!     .join()
-//!     .expect("spawn thread");
+//!     .expect("join thread");
 //! ```
 //!
 //! ## Atomic Write
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_mock_file_io() {
-        let file = NamedTempFile::new().unwrap();
+        let file = NamedTempFile::new().expect("create faketime file");
         let path = file.path();
 
         assert_eq!(None, read_millis(&path));
