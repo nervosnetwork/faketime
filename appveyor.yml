@@ -17,4 +17,4 @@ install:
 
 build: false
 test_script:
-  - cargo test --verbose -- --nocapture
+  - RUST_BACKTRACE=full cargo test -- --nocapture
