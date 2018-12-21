@@ -223,6 +223,8 @@ mod tests {
                 .into_temp_path();
             println!("write {:?}", path);
             write_millis(&path, 0).expect("write millis");
+            write_millis(&path, 2).expect("write millis");
+            fs::write(&path, "x").expect("write millis");
         }
 
         let faketime_file = NamedTempFile::new()
