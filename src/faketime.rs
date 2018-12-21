@@ -43,7 +43,7 @@
 //! use std::thread;
 //!
 //! let faketime_file = faketime::millis_tempfile(123_456).expect("create faketime file");
-//! env::set_var("FAKETIME", faketime_file.path().as_os_str());
+//! env::set_var("FAKETIME", faketime_file.as_os_str());
 //!
 //! thread::spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
 //!     .join()
@@ -60,7 +60,7 @@
 //! let faketime_file = faketime::millis_tempfile(123_456).expect("create faketime file");
 //!
 //! thread::Builder::new()
-//!     .name(format!("FAKETIME={}", faketime_file.path().display()))
+//!     .name(format!("FAKETIME={}", faketime_file.display()))
 //!     .spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
 //!     .expect("spawn thread")
 //!     .join()
@@ -102,7 +102,7 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempPath};
 
 pub use std::io::Result;
 
@@ -197,14 +197,14 @@ pub fn write_millis<T: AsRef<Path>>(path: T, millis: u64) -> Result<()> {
 /// ```
 /// let path = {
 ///     let faketime_file = faketime::millis_tempfile(123).expect("create faketime file");
-///     faketime_file.path().to_path_buf()
+///     faketime_file.to_path_buf()
 /// };
 /// assert!(!path.exists());
 /// ```
-pub fn millis_tempfile(millis: u64) -> Result<NamedTempFile> {
-    let file = NamedTempFile::new()?;
-    write_millis(&file, millis)?;
-    Ok(file)
+pub fn millis_tempfile(millis: u64) -> Result<TempPath> {
+    let path = NamedTempFile::new()?.into_temp_path();
+    write_millis(&path, millis)?;
+    Ok(path)
 }
 
 #[cfg(test)]
@@ -213,15 +213,16 @@ mod tests {
 
     #[test]
     fn test_mock_file_io() {
-        let file = NamedTempFile::new().expect("create faketime file");
-        let path = file.path();
+        let faketime_file = NamedTempFile::new()
+            .expect("create faketime file")
+            .into_temp_path();
 
-        assert_eq!(None, read_millis(&path));
-        let _ = fs::write(&path, "x");
-        assert_eq!(None, read_millis(&path));
-        let _ = fs::write(&path, "12345\n");
-        assert_eq!(Some(12345), read_millis(&path));
-        let _ = write_millis(&path, 54321);
-        assert_eq!(Some(54321), read_millis(&path));
+        assert_eq!(None, read_millis(&faketime_file));
+        let _ = fs::write(&faketime_file, "x");
+        assert_eq!(None, read_millis(&faketime_file));
+        let _ = fs::write(&faketime_file, "12345\n");
+        assert_eq!(Some(12345), read_millis(&faketime_file));
+        let _ = write_millis(&faketime_file, 54321);
+        assert_eq!(Some(54321), read_millis(&faketime_file));
     }
 }
