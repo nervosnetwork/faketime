@@ -43,7 +43,7 @@
 //! use std::thread;
 //!
 //! let faketime_file = faketime::millis_tempfile(123_456).expect("create faketime file");
-//! env::set_var("FAKETIME", faketime_file.path().as_os_str());
+//! env::set_var("FAKETIME", faketime_file.as_os_str());
 //!
 //! thread::spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
 //!     .join()
@@ -60,7 +60,7 @@
 //! let faketime_file = faketime::millis_tempfile(123_456).expect("create faketime file");
 //!
 //! thread::Builder::new()
-//!     .name(format!("FAKETIME={}", faketime_file.path().display()))
+//!     .name(format!("FAKETIME={}", faketime_file.display()))
 //!     .spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
 //!     .expect("spawn thread")
 //!     .join()
@@ -97,12 +97,12 @@ use crate::system::unix_time as system_unix_time;
 use std::cell::{Cell, RefCell};
 use std::env;
 use std::fs;
-use std::io::Write;
+use std::io::{Error, ErrorKind, Write};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempPath};
 
 pub use std::io::Result;
 
@@ -162,14 +162,18 @@ pub fn disable() {
     FAKETIME_ENABLED.with(|cell| cell.set(Some(false)));
 }
 
-fn read_millis<T: AsRef<Path>>(path: T) -> Option<u64> {
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|text| text.trim().parse().ok())
+fn read_millis<T: AsRef<Path>>(path: T) -> Result<u64> {
+    fs::read_to_string(path).and_then(|text| {
+        text.trim()
+            .parse()
+            .map_err(|err| Error::new(ErrorKind::Other, err))
+    })
 }
 
 fn read_or_system<T: AsRef<Path>>(path: T) -> Duration {
-    read_millis(path).map_or_else(system_unix_time, Duration::from_millis)
+    read_millis(path)
+        .ok()
+        .map_or_else(system_unix_time, Duration::from_millis)
 }
 
 /// Writes time as milliseconds since *UNIX EPOCH* into the specified timestamp file.
@@ -197,14 +201,14 @@ pub fn write_millis<T: AsRef<Path>>(path: T, millis: u64) -> Result<()> {
 /// ```
 /// let path = {
 ///     let faketime_file = faketime::millis_tempfile(123).expect("create faketime file");
-///     faketime_file.path().to_path_buf()
+///     faketime_file.to_path_buf()
 /// };
 /// assert!(!path.exists());
 /// ```
-pub fn millis_tempfile(millis: u64) -> Result<NamedTempFile> {
-    let file = NamedTempFile::new()?;
-    write_millis(&file, millis)?;
-    Ok(file)
+pub fn millis_tempfile(millis: u64) -> Result<TempPath> {
+    let path = NamedTempFile::new()?.into_temp_path();
+    write_millis(&path, millis)?;
+    Ok(path)
 }
 
 #[cfg(test)]
@@ -213,15 +217,15 @@ mod tests {
 
     #[test]
     fn test_mock_file_io() {
-        let file = NamedTempFile::new().unwrap();
-        let path = file.path();
+        let tempdir = tempfile::tempdir().expect("create tempdir");
+        let faketime_file = tempdir.path().join("faketime");
 
-        assert_eq!(None, read_millis(&path));
-        let _ = fs::write(&path, "x");
-        assert_eq!(None, read_millis(&path));
-        let _ = fs::write(&path, "12345\n");
-        assert_eq!(Some(12345), read_millis(&path));
-        let _ = write_millis(&path, 54321);
-        assert_eq!(Some(54321), read_millis(&path));
+        assert_eq!(None, read_millis(&faketime_file).ok());
+        fs::write(&faketime_file, "x").expect("write millis");
+        assert_eq!(None, read_millis(&faketime_file).ok());
+        fs::write(&faketime_file, "12345\n").expect("write millis");
+        assert_eq!(12345, read_millis(&faketime_file).expect("read millis"));
+        write_millis(&faketime_file, 54321).expect("write millis");
+        assert_eq!(54321, read_millis(&faketime_file).expect("read millis"));
     }
 }
