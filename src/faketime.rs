@@ -222,6 +222,7 @@ mod tests {
             .into_temp_path();
 
         assert_eq!(None, read_millis(&faketime_file).ok());
+        println!("write {:?}", faketime_file);
         fs::write(&faketime_file, "x").expect("write millis");
         assert_eq!(None, read_millis(&faketime_file).ok());
         fs::write(&faketime_file, "12345\n").expect("write millis");
