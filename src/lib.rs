@@ -7,7 +7,7 @@ pub mod faketime;
 pub mod system;
 
 #[cfg(not(disable_faketime))]
-pub use crate::faketime::{disable, enable, enable_and_write_millis, unix_time, write_millis};
+pub use crate::faketime::{disable, enable, millis_tempfile, unix_time, write_millis};
 #[cfg(disable_faketime)]
 pub use crate::system::unix_time;
 
@@ -26,7 +26,8 @@ mod tests {
     #[cfg(not(disable_faketime))]
     #[test]
     fn test_mock_constant_time() {
-        let _faketime_file = enable_and_write_millis(123456).expect("enable faketime");
+        let faketime_file = millis_tempfile(123_456).expect("create faketime file");
+        enable(&faketime_file);
 
         let now = unix_time();
         assert_eq!(123, now.as_secs());

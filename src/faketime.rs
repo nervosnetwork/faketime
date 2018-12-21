@@ -26,7 +26,8 @@
 //!
 //! ```
 //! assert_ne!(faketime::unix_time().as_secs(), 100);
-//! let _faketime_file = faketime::enable_and_write_millis(100_000).expect("enable faketime");
+//! let faketime_file = faketime::millis_tempfile(100_000).expect("create faketime file");
+//! faketime::enable(&faketime_file);
 //! assert_eq!(faketime::unix_time().as_secs(), 100);
 //! ```
 //!
@@ -34,43 +35,32 @@
 //! `faketime::disable()` has been invoked in the thread already, it will detect whether faketime
 //! should be enabled and which timestamp file should be used.
 //!
-//! First, if the environment variable `FAKETIME_DIR` exists, and this thread has a name
-//! `THREAD_NAME` (see `std::thread::Thread::name`), faketime is enabled, and the timestamp file
-//! path is `FAKETIME_DIR/THREAD_NAME`.
+//! First, if the environment variable `FAKETIME` exists, faketime is enabled, and the timestamp
+//! file path is the environment variable value.
 //!
 //! ```
 //! use std::env;
-//! use std::fs;
 //! use std::thread;
-//! use tempfile::TempDir;
 //!
-//! let dir = TempDir::new().expect("create temp dir");
-//! env::set_var("FAKETIME_DIR", dir.path().as_os_str());
-//! let file = dir.path().join("faketime");
-//! faketime::write_millis(&file, 123_456);
+//! let faketime_file = faketime::millis_tempfile(123_456).expect("create faketime file");
+//! env::set_var("FAKETIME", faketime_file.path().as_os_str());
 //!
-//! thread::Builder::new()
-//!     .name("faketime".to_string())
-//!     .spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
-//!     .expect("spawn thread")
+//! thread::spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
 //!     .join()
 //!     .expect("join thread");
 //! ```
 //!
-//! If the environment variable `FAKETIME_DIR` is missing, but this thread has a name and the name
+//! If the environment variable `FAKETIME` is missing, but this thread has a name and the name
 //! starts with `FAKETIME=` literally, faketime is also enabled, and the timestamp file is the
 //! portion of the thread name after `FAKETIME=`.
 //!
 //! ```
-//! use std::fs;
 //! use std::thread;
-//! use tempfile::NamedTempFile;
 //!
-//! let file = NamedTempFile::new().expect("create temp file");
-//! faketime::write_millis(file.path(), 123_456);
+//! let faketime_file = faketime::millis_tempfile(123_456).expect("create faketime file");
 //!
 //! thread::Builder::new()
-//!     .name(format!("FAKETIME={}", file.path().display()))
+//!     .name(format!("FAKETIME={}", faketime_file.path().display()))
 //!     .spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
 //!     .expect("spawn thread")
 //!     .join()
@@ -124,7 +114,7 @@ thread_local! {
     static FAKETIME_PATH: RefCell<PathBuf> = Default::default();
 }
 
-const KEY_FAKETIME_DIR: &str = "FAKETIME_DIR";
+const KEY_FAKETIME: &str = "FAKETIME";
 const PREFIX_FAKETIME_EQ: &str = "FAKETIME=";
 
 /// Gets elapsed time since *UNIX EPOCH*.
@@ -141,41 +131,29 @@ pub fn unix_time() -> Duration {
 }
 
 fn auto_detect(enabled_cell: &Cell<Option<bool>>) -> Duration {
-    let path_option = match thread::current().name() {
-        Some(name) => match env::var(KEY_FAKETIME_DIR) {
-            Ok(val) => {
-                let mut path = PathBuf::from(val);
-                path.push(name);
-                Some(path)
+    if let Some(path) = match env::var(KEY_FAKETIME) {
+        Ok(val) => Some(PathBuf::from(val)),
+        _ => match thread::current().name() {
+            Some(name) if name.starts_with(PREFIX_FAKETIME_EQ) => {
+                Some(PathBuf::from(&name[PREFIX_FAKETIME_EQ.len()..]))
             }
-            _ => {
-                if name.starts_with(PREFIX_FAKETIME_EQ) {
-                    Some(PathBuf::from(&name[PREFIX_FAKETIME_EQ.len()..]))
-                } else {
-                    None
-                }
-            }
+            _ => None,
         },
-        None => None,
-    };
-
-    match path_option {
-        Some(path) => {
-            let duration = read_or_system(&path);
-            enabled_cell.set(Some(true));
-            FAKETIME_PATH.with(|file_cell| file_cell.replace(path));
-            duration
-        }
-        None => {
-            enabled_cell.set(Some(false));
-            system_unix_time()
-        }
+    } {
+        let duration = read_or_system(&path);
+        FAKETIME_PATH.with(|file_cell| file_cell.replace(path));
+        enabled_cell.set(Some(true));
+        duration
+    } else {
+        enabled_cell.set(Some(false));
+        system_unix_time()
     }
 }
 
 /// Enables faketime in current thread and use the specified timestamp file.
-pub fn enable(path: PathBuf) {
-    FAKETIME_PATH.with(|cell| cell.replace(path));
+pub fn enable<T: AsRef<Path>>(path: T) {
+    let path_buf = path.as_ref().to_path_buf();
+    FAKETIME_PATH.with(|cell| cell.replace(path_buf));
     FAKETIME_ENABLED.with(|cell| cell.set(Some(true)));
 }
 
@@ -202,20 +180,30 @@ pub fn write_millis<T: AsRef<Path>>(path: T, millis: u64) -> Result<()> {
     Ok(())
 }
 
-/// Enables and writes time into the timestamp file.
+/// Writes time into a temporary file and return the file.
 ///
-/// It returns the handle to the timestamp file. The file is deleted when the handle goes out of
-/// scope.
 ///
-/// **Attention**: if the return result is assigned to an unnamed variable, the timestamp file is
-/// deleted immediately, which may not be what you mean. Always assign it to a named variable, and
-/// keep it until faketime is no longer needed.
-pub fn enable_and_write_millis(millis: u64) -> Result<NamedTempFile> {
+/// It returns the handle to the timestamp file on success.
+///
+/// ```
+/// use std::fs;
+///
+/// let faketime_file = faketime::millis_tempfile(123).expect("create faketime file");
+/// assert_eq!(fs::read_to_string(&faketime_file).ok(), Some("123".to_string()));
+/// ```
+///
+/// The file is deleted when the handle goes out of scope.
+///
+/// ```
+/// let path = {
+///     let faketime_file = faketime::millis_tempfile(123).expect("create faketime file");
+///     faketime_file.path().to_path_buf()
+/// };
+/// assert!(!path.exists());
+/// ```
+pub fn millis_tempfile(millis: u64) -> Result<NamedTempFile> {
     let file = NamedTempFile::new()?;
-    let path = file.path();
-    write_millis(&path, millis)?;
-
-    enable(path.to_path_buf());
+    write_millis(&file, millis)?;
     Ok(file)
 }
 
@@ -235,15 +223,5 @@ mod tests {
         assert_eq!(Some(12345), read_millis(&path));
         let _ = write_millis(&path, 54321);
         assert_eq!(Some(54321), read_millis(&path));
-    }
-
-    #[test]
-    fn format_code() {
-        // thread::Builder::new()
-        //     .name("faketime".to_string())
-        //     .spawn(|| assert_eq!(123, faketime::unix_time().as_secs()))
-        //     .expect("spawn thread")
-        //     .join()
-        //     .expect("join thread");
     }
 }
