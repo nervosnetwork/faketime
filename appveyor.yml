@@ -17,4 +17,5 @@ install:
 
 build: false
 test_script:
-  - RUST_BACKTRACE=full cargo test -- --nocapture
+  - cmd: SET RUST_BACKTRACE=full
+  - cargo test -- --nocapture
