@@ -37,7 +37,7 @@ mod tests {
 
     #[cfg(disable_faketime)]
     #[test]
-    fn test_system_time() {
+    fn test_system() {
         let system_now = system::unix_time();
         let now = unix_time();
         assert!((now - system_now).as_secs() < 60);
@@ -45,7 +45,7 @@ mod tests {
 
     #[cfg(not(disable_faketime))]
     #[test]
-    fn test_mock_constant_time() {
+    fn test_faketime() {
         let faketime_file = millis_tempfile(123_456).expect("create faketime file");
         enable(&faketime_file);
 
