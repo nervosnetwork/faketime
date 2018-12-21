@@ -17,7 +17,7 @@ matrix:
     - os: windows
 
 script:
-- cargo test -- --nocapture
+- cargo test --verbose -- --nocapture
 
 before_cache:
 - rm -rf $HOME/.cargo/registry
