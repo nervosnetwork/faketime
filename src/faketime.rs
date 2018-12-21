@@ -217,6 +217,14 @@ mod tests {
 
     #[test]
     fn test_mock_file_io() {
+        {
+            let path = NamedTempFile::new()
+                .expect("create faketime file")
+                .into_temp_path();
+            println!("write {:?}", path);
+            write_millis(&path, 0).expect("write millis");
+        }
+
         let faketime_file = NamedTempFile::new()
             .expect("create faketime file")
             .into_temp_path();
