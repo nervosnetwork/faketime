@@ -11,6 +11,26 @@ pub use crate::faketime::{disable, enable, millis_tempfile, unix_time, write_mil
 #[cfg(disable_faketime)]
 pub use crate::system::unix_time;
 
+/// Gets elapsed time in milliseconds since *UNIX EPOCH*.
+///
+/// ```
+/// let now = faketime::unix_time();
+/// let millis = faketime::unix_time_as_millis();
+/// assert!(millis / 1000 - now.as_secs() < 60);
+/// ```
+///
+/// This function depends on the return result from `unix_time`. If `unix_time` is faked, this
+/// function is also faked.
+///
+/// ## Panics
+///
+/// Panics if the time is before *UNIX EPOCH*, or `u64` is not enough to store the number of
+/// milliseconds.
+pub fn unix_time_as_millis() -> u64 {
+    let duration = unix_time();
+    duration.as_secs() * 1000 + u64::from(duration.subsec_millis())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
