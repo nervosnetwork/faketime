@@ -1,6 +1,6 @@
 [package]
 name = "faketime"
-version = "0.2.0"
+version = "0.2.1"
 license = "MIT"
 authors = ["Nervos Core Dev <dev@nervos.org>"]
 edition = "2018"
@@ -12,3 +12,9 @@ exclude = ["/.travis.yml"]
 
 [target.'cfg(not(disable_faketime))'.dependencies]
 tempfile = "3.0"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+js-sys = "0.3"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

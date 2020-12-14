@@ -6,6 +6,9 @@ faketime-test:
 system-test:
 	RUSTDOCFLAGS="--cfg disable_faketime" RUSTFLAGS="--cfg disable_faketime" cargo test
 
+wasm-headless-browser-test:
+	wasm-pack test --headless --chrome
+
 doc:
 	cargo doc --no-deps
 
