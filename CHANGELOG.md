@@ -1,3 +1,9 @@
+# [0.2.1](https://github.com/nervosnetwork/faketime/compare/v0.2.0...v0.2.1) (2020-12-17)
+
+### Features
+
+- support running on wasm32 target and browser. ([#2](https://github.com/nervosnetwork/faketime/pull/2))
+
 # [0.2.0](https://github.com/nervosnetwork/faketime/compare/v0.1.0...v0.2.0) (2018-12-21)
 
 ### Features
