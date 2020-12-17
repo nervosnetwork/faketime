@@ -5,6 +5,8 @@
 #[cfg(not(disable_faketime))]
 pub mod faketime;
 pub mod system;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+mod wasm;
 
 #[cfg(not(disable_faketime))]
 pub use crate::faketime::{disable, enable, millis_tempfile, unix_time, write_millis};
